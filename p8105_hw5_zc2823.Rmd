@@ -6,7 +6,7 @@ date: "2025-10-30"
 
 ```{r setup, include = FALSE}
 library(tidyverse)
-
+library(broom)
 library(rvest)
 library(p8105.datasets)
 
@@ -25,6 +25,7 @@ options(
 
 scale_color_discrete = scale_color_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
+set.seed(1)
 ```
 
 # Problem 1
@@ -46,7 +47,8 @@ sim_results =
   }))
 ```
 
-```{r}
+### Make a plot 
+```{r warning=FALSE}
 sim_results %>% 
   ggplot(aes(x = group_size, y = probability)) +
   geom_line(size = 1) +
@@ -59,5 +61,107 @@ sim_results %>%
   theme_minimal(base_size = 12)
 ```
 
+The plot shows that the probability of shared birthdays increases rapidly with group size. Around n = 23, the probability exceeds 0.5, and by n ≈ 40, it’s close to 1. This confirms the birthday paradox—shared birthdays become likely even in relatively small groups.
 
+
+# Problem 2
+
+### Parameter setting
+```{r}
+n = 30
+sigma = 5
+mu_list = 0:6
+n_sim = 5000
+```
+
+### Define the function: generate datasets, t test, return the result
+```{r}
+sim_ttest = function(mu) {
+  tibble(
+    mu_true = mu,
+    mu_hat = map_dbl(1:n_sim, function(i) {
+      x = rnorm(n, mean = mu, sd = sigma)
+      mean(x)
+    }),
+    p_value = map_dbl(1:n_sim, function(i) {
+      x = rnorm(n, mean = mu, sd = sigma)
+      tidy(t.test(x, mu = 0))$p.value
+    })
+  )
+}
+```
+
+### Simulation for mu
+```{r}
+sim_results = map_dfr(mu_list, sim_ttest)
+```
+
+### Calculte power
+```{r}
+power_df = 
+  sim_results %>% 
+  group_by(mu_true) %>% 
+  summarize(power = mean(p_value < 0.05))
+```
+
+### Make a plot showing the proportion of times the null was rejected
+```{r}
+ggplot(power_df, aes(x = mu_true, y = power, color = mu_true)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 2) +
+  scale_color_viridis_c() +
+  labs(
+    title = "Power vs Effect Size",
+    x = "True Mean (μ)",
+    y = "Power (Probability of Rejecting Null Hypothesis)"
+  ) +
+  theme_minimal(base_size = 11) + 
+theme(
+  axis.title.y = element_text(size = 10, face = "bold"),
+  plot.title = element_text(hjust = 0.5, size = 12, face = "bold")
+)
+```
+
+The plot shows a strong positive association between effect size (true mean, μ) and power. As μ increases, the probability of rejecting the null hypothesis rises sharply. When μ = 0, the power is close to the significance level (≈0.05). As μ increases beyond 3, the power approaches 1, meaning the test almost always detects the true effect.
+
+### Calculate mu_hat
+```{r}
+mu_summary = 
+  sim_results %>% 
+  group_by(mu_true) %>% 
+  summarize(
+    avg_mu_hat = mean(mu_hat),
+    avg_mu_hat_reject = mean(mu_hat[p_value < 0.05])
+  )
+```
+
+### average estimate vs true value 
+```{r}
+mu_summary %>% 
+  ggplot(aes(x = mu_true)) +
+  geom_line(aes(y = avg_mu_hat, color = "All samples"), size = 0.5) +
+  geom_point(aes(y = avg_mu_hat, color = "All samples"), size = 0.8, alpha = 0.5) +
+  geom_line(aes(y = avg_mu_hat_reject, color = "Significant only"), 
+            size = 0.5, linetype = "dashed") +
+  geom_point(aes(y = avg_mu_hat_reject, color = "Significant only"), 
+             size = 0.8, alpha = 0.5) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "gray40") +
+  scale_color_viridis_d(option = "C", begin = 0.1, end = 0.9) +  
+  labs(
+    title = "Average Estimated Mean vs True Mean",
+    x = "True Mean (μ)",
+    y = "Average Estimated μ̂",
+    color = "Sample Type"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
+  )
+```
+
+The plot shows that the average estimated mean (μ̂) across all samples lies almost perfectly on the 45° reference line, meaning μ̂ is an unbiased estimator of the true mean μ.
+When considering only samples where the null hypothesis was rejected, the average μ̂ is approximately equal to the true μ for large effect sizes, but slightly higher when μ is small. This occurs because only samples with unusually large sample means are likely to produce significant results when the true effect is small — a phenomenon known as selection bias or the winner’s curse.
+In short, the sample average of μ̂ among significant tests is slightly upward-biased for small μ, but overall very close to the true value when μ is large.
 
