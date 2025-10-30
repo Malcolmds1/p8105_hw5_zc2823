@@ -1,0 +1,63 @@
+---
+title: "Homework5_zc2823"
+output: github_document
+date: "2025-10-30"
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+
+library(rvest)
+library(p8105.datasets)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.color = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_color_discrete = scale_color_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+# Problem 1
+
+### Define function: return if there is duplicate birthday
+```{r}
+birthday_sim = function(n) {
+  birthdays = sample(1:365, n, replace = TRUE)
+  any(duplicated(birthdays))
+}
+```
+
+### Simulation: 10000 times for each group size between 2 and 50
+```{r}
+sim_results = 
+  tibble(group_size = 2:50) %>% 
+  mutate(probability = map_dbl(group_size, function(n) {
+    mean(replicate(10000, birthday_sim(n)))
+  }))
+```
+
+```{r}
+sim_results %>% 
+  ggplot(aes(x = group_size, y = probability)) +
+  geom_line(size = 1) +
+  geom_point(size = 1.5) +
+  labs(
+    title = "Probability That At Least Two People Share a Birthday",
+    x = "Group Size (n)",
+    y = "Probability"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+
+
