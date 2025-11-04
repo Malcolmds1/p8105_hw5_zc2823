@@ -169,13 +169,13 @@ As μ increases and statistical power approaches 1, the two lines converge, sinc
 # Problem 3
 
 ### Load data
-```{r}
+```{r warning=FALSE}
 homi_df = read_csv("data/homicide-data.csv") |> 
   clean_names()
 ```
 
 ### Describe the raw data
-```{r}
+```{r warning=FALSE}
 homi_summary <- homi_df %>%
   mutate(rep_date = ymd_hms(reported_date, quiet = TRUE)) %>%
   summarise(
