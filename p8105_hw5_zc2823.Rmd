@@ -77,17 +77,15 @@ n_sim = 5000
 ### Define the function: generate datasets, t test, return the result
 ```{r}
 sim_ttest = function(mu) {
-  tibble(
-    mu_true = mu,
-    mu_hat = map_dbl(1:n_sim, function(i) {
-      x = rnorm(n, mean = mu, sd = sigma)
-      mean(x)
-    }),
-    p_value = map_dbl(1:n_sim, function(i) {
-      x = rnorm(n, mean = mu, sd = sigma)
-      tidy(t.test(x, mu = 0))$p.value
-    })
-  )
+  map_dfr(1:n_sim, function(i) {
+    x = rnorm(n, mean = mu, sd = sigma)
+    t_out = tidy(t.test(x, mu = 0))
+    tibble(
+      mu_true = mu,
+      mu_hat = t_out$estimate,   # mean of this sample
+      p_value = t_out$p.value    # corresponding p-value
+    )
+  })
 }
 ```
 
@@ -126,27 +124,26 @@ The plot shows a strong positive association between effect size (true mean, μ)
 
 ### Calculate mu_hat
 ```{r}
-mu_summary = 
-  sim_results %>% 
-  group_by(mu_true) %>% 
+mu_summary = sim_results %>%
+  group_by(mu_true) %>%
   summarize(
     avg_mu_hat = mean(mu_hat),
     avg_mu_hat_reject = mean(mu_hat[p_value < 0.05])
   )
+
 ```
 
-### average estimate vs true value 
+### Plot average estimate vs true value 
 ```{r}
-mu_summary %>% 
-  ggplot(aes(x = mu_true)) +
-  geom_line(aes(y = avg_mu_hat, color = "All samples"), size = 0.5) +
-  geom_point(aes(y = avg_mu_hat, color = "All samples"), size = 0.8, alpha = 0.5) +
+ggplot(mu_summary, aes(x = mu_true)) +
+  geom_line(aes(y = avg_mu_hat, color = "All samples"), size = 1) +
+  geom_point(aes(y = avg_mu_hat, color = "All samples"), size = 2, alpha = 0.7) +
   geom_line(aes(y = avg_mu_hat_reject, color = "Significant only"), 
-            size = 0.5, linetype = "dashed") +
+            size = 1, linetype = "dashed") +
   geom_point(aes(y = avg_mu_hat_reject, color = "Significant only"), 
-             size = 0.8, alpha = 0.5) +
+             size = 2, alpha = 0.7) +
   geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "gray40") +
-  scale_color_viridis_d(option = "C", begin = 0.1, end = 0.9) +  
+  scale_color_viridis_d(option = "C", begin = 0.1, end = 0.9) +
   labs(
     title = "Average Estimated Mean vs True Mean",
     x = "True Mean (μ)",
@@ -161,7 +158,10 @@ mu_summary %>%
   )
 ```
 
-The plot shows that the average estimated mean (μ̂) across all samples lies almost perfectly on the 45° reference line, meaning μ̂ is an unbiased estimator of the true mean μ.
-When considering only samples where the null hypothesis was rejected, the average μ̂ is approximately equal to the true μ for large effect sizes, but slightly higher when μ is small. This occurs because only samples with unusually large sample means are likely to produce significant results when the true effect is small — a phenomenon known as selection bias or the winner’s curse.
-In short, the sample average of μ̂ among significant tests is slightly upward-biased for small μ, but overall very close to the true value when μ is large.
+The plot shows that the average estimated mean (μ̂) across all samples lies almost perfectly on the 45° reference line, indicating that (μ̂) is an unbiased estimator of the true mean μ.
+However, when considering only samples where the null hypothesis was rejected (p < 0.05), the average (μ̂) is higher than the true mean for small μ values. This occurs because only samples with unusually large sample means produce significant results when the true effect is small — a phenomenon known as selection bias or the winner’s curse.
+As μ increases and statistical power approaches 1, the two lines converge, since almost all samples become significant.
+
+
+# Problem 3
 
